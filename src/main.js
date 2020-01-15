@@ -6,9 +6,13 @@ const LOADERS = require('./loaders');
 const spinners = require('cli-spinners');
 
 const monitor = (state, events) => {
-  const WINDOW_WIDTH = 5000;
+  const WINDOW_WIDTH = 10000;
+  const SPINNER = spinners.arrow3;
+
   return new Promise((resolve, reject) => {
     const window = [];
+    const runStart = +new Date();
+
     const timer = setInterval(() => {
       try {
         const now = +new Date();
@@ -29,9 +33,17 @@ const monitor = (state, events) => {
         for (let prop of props) {
           start = startCount[prop] || 0;
           end = endCount[prop];
-          statuses.push(`${chalk.yellow(prop)}: ${Math.round(100 * (end - start) / durSecs) / 100} per second`);
+          const rate = (end - start) / durSecs;
+          if (rate > 10) {
+            statuses.push(`${chalk.yellow(prop)}: ${Math.round(rate)} per second`);
+          } else {
+            statuses.push(`${chalk.yellow(prop)}: ${Math.round(rate * 100) / 100} per second`);
+          }
         }
-        logUpdate(`\n${chalk.bold('State')}: ${state.stop ? chalk.red('stopping') : (chalk.green('running') + ' (enter to stop)')}\n` + statuses.join('\n'));
+        
+        const stateStr = `${chalk.bold('State')}: ${state.stop ? chalk.red('stopping') : (chalk.green('running') + ' (enter to stop)')}`;
+        const spinner = SPINNER.frames[Math.round((+new Date - runStart) / SPINNER.interval) % SPINNER.frames.length];
+        logUpdate(`\n${stateStr} ${spinner}\n` + statuses.join('\n'));
       } catch (err) {
         clearInterval(timer);
         reject(err);
@@ -40,7 +52,7 @@ const monitor = (state, events) => {
         clearInterval(timer);
         resolve();
       }
-    }, 500);
+    }, SPINNER.interval);
   });
 };
 
