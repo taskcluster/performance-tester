@@ -7,11 +7,12 @@
   "license": "MPL-2.0",
   "dependencies": {
     "chalk": "^3.0.0",
+    "cli-spinners": "^2.2.0",
     "lodash": "^4.17.15",
     "log-update": "^3.3.0",
     "taskcluster-client": "^24.2.0"
   },
   "scripts": {
-    "load": "node src/load.js"
+    "load": "node src/main.js"
   }
 }
