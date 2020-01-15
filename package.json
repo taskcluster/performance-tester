@@ -8,6 +8,8 @@
   "dependencies": {
     "chalk": "^3.0.0",
     "cli-spinners": "^2.2.0",
+    "js-yaml": "^3.13.1",
+    "json-e": "^3.0.1",
     "lodash": "^4.17.15",
     "log-update": "^3.3.0",
     "taskcluster-client": "^24.2.0"
