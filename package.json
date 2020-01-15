@@ -1,0 +1,8 @@
+{
+  "name": "performance-tester",
+  "version": "1.0.0",
+  "main": "index.js",
+  "repository": "https://github.com/taskcluster/performance-tester",
+  "author": "Dustin J. Mitchell <dustin@mozilla.com>",
+  "license": "MPL-2.0"
+}
