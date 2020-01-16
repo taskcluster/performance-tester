@@ -7,10 +7,16 @@ const chalk = require('chalk');
 const {sleep, apiCall, atRate, loopUntilStop} = require('./util');
 const yaml = require('js-yaml');
 const jsone = require('json-e');
+const https = require('https');
 
 const clientConfig = process.env.TASKCLUSTER_PROXY_URL ?
   {rootUrl: process.env.TASKCLUSTER_PROXY_URL} :
   taskcluster.fromEnvVars();
+clientConfig.agent = new https.Agent({
+  keepAlive: true,
+  maxSockets: Infinity,
+  maxFreeSockets: 256,
+});
 
 // claimwork: create, claim and resolve tasks from a queue
 exports.claimwork_loader = async (state) => {
