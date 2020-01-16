@@ -6,18 +6,19 @@ const LOADERS = require('./loaders');
 const spinners = require('cli-spinners');
 const {loopUntilStop} = require('./util');
 
-const monitor = (state, events) => {
+const monitor = (state, counts, logs, running) => {
   const WINDOW_WIDTH = 10000;
+  const LOG_LENGTH = 40;
   const SPINNER = spinners.arrow3;
   const window = [];
   const runStart = +new Date();
 
-  return loopUntilStop(state, SPINNER.interval, () => {
+  setInterval(() => {
     const now = +new Date();
     while (window.length && window[0][0] < now - WINDOW_WIDTH) {
       window.splice(0, 1);
     }
-    window.push([now, _.clone(events)]);
+    window.push([now, _.clone(counts)]);
 
     if (window.length < 2) {
       return;
@@ -38,42 +39,57 @@ const monitor = (state, events) => {
         statuses.push(`${chalk.yellow(prop)}: ${Math.round(rate * 100) / 100} per second`);
       }
     }
+
+    if (logs.length > LOG_LENGTH) {
+      logs.splice(0, logs.length - LOG_LENGTH);
+    }
+    const logLines = logs.map(([when, msg]) => `${chalk.magenta(when)} - ${msg}`);
+
+    const apiMethods = Object.keys(running).sort();
+    const runningStr = `${chalk.bold('Running API Calls:')} ${apiMethods.map(m => chalk.yellow(m) + '=' + running[m]).join(' ')}`;
     
-    const stateStr = `${chalk.bold('State')}: ${state.stop ? chalk.red('stopping') : (chalk.green('running') + ' (enter to stop)')}`;
+    const stateStr = `${chalk.bold('State')}: ${state.stop ? (chalk.red('stopping') + ' (Q to force)') : (chalk.green('running') + ' (any key to stop)')}`;
     const spinner = SPINNER.frames[Math.round((+new Date - runStart) / SPINNER.interval) % SPINNER.frames.length];
-    logUpdate(`\n${stateStr} ${spinner}\n` + statuses.join('\n'));
-  });
+    logUpdate(`\n${logLines.join('\n')}\n${stateStr} ${spinner}\n${runningStr}\n${statuses.join('\n')}`);
+  }, SPINNER.interval);
 };
 
 const main = () => {
   const loaders = process.env.LOADERS.split(' ');
   const state = {stop: false};
 
-  const events = {};
-  const count = (name, inc) => {
-    events[name] = (events[name] || 0) + inc;
+  const counts = {};
+  const running = {};
+  const logs = [];
+  state.count = (name, inc) => {
+    counts[name] = (counts[name] || 0) + inc;
   };
+  state.log = (msg) => {
+    const now = new Date();
+    msg.split('\n').forEach(l => logs.push([now, l]));
+  };
+  state.running = (method, inc) => {
+    running[method] = (running[method] || 0) + inc;
+  }
 
   const loaderPromises = Promise.all(loaders.map(l => {
     const loader = LOADERS[l + '_loader'];
     if (!loader) {
       throw new Error('no such loader ' + match[1]);
     }
-    return loader(state, count);
+    return loader(state);
   }));
 
-  const monitorPromise = monitor(state, events);
-
+  monitor(state, counts, logs, running);
   process.stdin.setRawMode(true).resume();
-  process.stdin.once('data', () => {
+  process.stdin.on('data', k => {
+    if (state.stop && k == 'Q') {
+      process.exit(1);
+    }
     state.stop = true;
-    process.stdin.pause();
   });
 
-  return Promise.all([
-    monitorPromise,
-    loaderPromises,
-  ]).catch(err => {
+  return loaderPromises.catch(err => {
     state.stop = true;
     throw err;
   });
@@ -82,4 +98,7 @@ const main = () => {
 main().then(
   () => {},
   err => console.log(err),
-);
+).then(() => {
+  process.stdin.setRawMode(false);
+  process.exit(0);
+});
