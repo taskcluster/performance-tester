@@ -1,9 +1,11 @@
+const fs = require('fs');
 const taskcluster = require('taskcluster-client');
 const _ = require('lodash');
 const logUpdate = require('log-update');
 const chalk = require('chalk');
 const LOADERS = require('./loaders');
 const spinners = require('cli-spinners');
+const yaml = require('js-yaml');
 const {loopUntilStop} = require('./util');
 
 const monitor = (state, counts, logs, running, statusFns) => {
@@ -60,7 +62,9 @@ const monitor = (state, counts, logs, running, statusFns) => {
 };
 
 const main = () => {
-  const loaders = process.env.LOADERS.split(' ');
+  console.log(`reading ${process.argv[2]}`);
+  const config = yaml.safeLoad(fs.readFileSync(process.argv[2]));
+
   const state = {stop: false};
 
   const counts = {};
@@ -81,12 +85,13 @@ const main = () => {
     statusFns[name] = cb;
   };
 
-  const loaderPromises = Promise.all(loaders.map(l => {
-    const loader = LOADERS[l + '_loader'];
+  const loaderPromises = Promise.all(Object.entries(config.loaders).map(([name, settings]) => {
+    const loader = LOADERS[settings.use + '_loader'];
     if (!loader) {
       throw new Error('no such loader ' + match[1]);
     }
-    return loader(state);
+    state.log(`starting loader ${name}`);
+    return loader(state, settings);
   }));
 
   monitor(state, counts, logs, running, statusFns);

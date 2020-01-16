@@ -19,12 +19,12 @@ clientConfig.agent = new https.Agent({
 });
 
 // claimwork: create, claim and resolve tasks from a queue
-exports.claimwork_loader = async (state) => {
+exports.claimwork_loader = async (state, settings) => {
   const queue = new taskcluster.Queue(clientConfig);
-  const taskQueueId = process.env.CLAIMWORK_TASKQUEUEID;
+  const taskQueueId = settings['task-queue-id'];
   const [tqi1, tqi2] = taskQueueId.split('/');
-  const parallelism = parseInt(process.env.CLAIMWORK_PARALLELISM);
-  const targetCount = process.env.CLAIMWORK_PENDING_COUNT;
+  const parallelism = settings['parallelism'];
+  const targetCount = settings['pending-count'];
 
   let status = {
     numRunning: 0,
@@ -32,7 +32,7 @@ exports.claimwork_loader = async (state) => {
   };
   state.statusFn(`claimwork for ${taskQueueId}`, () => `${chalk.yellow('Running tasks')}: ${status.numRunning}; ${chalk.yellow('Pending tasks')}: ${status.numPending}`);
 
-  const taskTemplateYml = fs.readFileSync(process.env.CLAIMWORK_TASK_FILE);
+  const taskTemplateYml = fs.readFileSync(settings['task-file']);
   const taskTemplate = yaml.safeLoad(taskTemplateYml);
   const makeTask = async () => {
     const task = jsone(taskTemplate, {});
@@ -159,11 +159,10 @@ exports.claimwork_loader = async (state) => {
 
 // expandscopes: call auth.expandScopes with items randomly selected from
 // $EXPANDSCOPES
-exports.expandscopes_loader = async (state) => {
+exports.expandscopes_loader = async (state, settings) => {
   const auth = new taskcluster.Auth(clientConfig);
-  const scopes = process.env.EXPANDSCOPES.split(' ');
-
-  const rate = parseInt(process.env.EXPANDSCOPES_RATE);
+  const scopes = settings.scopes;
+  const rate = settings.rate;
 
   await atRate(state, async () => {
     const size = _.random(1, scopes.length);
