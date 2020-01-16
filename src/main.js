@@ -6,7 +6,7 @@ const LOADERS = require('./loaders');
 const spinners = require('cli-spinners');
 const {loopUntilStop} = require('./util');
 
-const monitor = (state, counts, logs, running) => {
+const monitor = (state, counts, logs, running, statusFns) => {
   const WINDOW_WIDTH = 10000;
   const LOG_LENGTH = 40;
   const SPINNER = spinners.arrow3;
@@ -28,29 +28,34 @@ const monitor = (state, counts, logs, running) => {
     const durSecs = (endTime - startTime) / 1000;
 
     const props = Object.keys(endCount).sort();
-    const statuses = [];
+    const apiMethods = [];
     for (let prop of props) {
       start = startCount[prop] || 0;
       end = endCount[prop];
       const rate = (end - start) / durSecs;
       if (rate > 10) {
-        statuses.push(`${chalk.yellow(prop)}: ${Math.round(rate)} per second`);
+        apiMethods.push(`${chalk.yellow(prop)}: ${Math.round(rate)} per second`);
       } else {
-        statuses.push(`${chalk.yellow(prop)}: ${Math.round(rate * 100) / 100} per second`);
+        apiMethods.push(`${chalk.yellow(prop)}: ${Math.round(rate * 100) / 100} per second`);
       }
     }
+    const apiMethodsStr = `${chalk.bold('API Method Rates')}:\n${apiMethods.join('\n')}`;
 
     if (logs.length > LOG_LENGTH) {
       logs.splice(0, logs.length - LOG_LENGTH);
     }
     const logLines = logs.map(([when, msg]) => `${chalk.magenta(when)} - ${msg}`);
 
-    const apiMethods = Object.keys(running).sort();
-    const runningStr = `${chalk.bold('Running API Calls:')} ${apiMethods.map(m => chalk.yellow(m) + '=' + running[m]).join(' ')}`;
+    const runningCalls = Object.keys(running).sort();
+    const runningStr = `${chalk.bold('Running API Calls:')} ${runningCalls.map(m => chalk.yellow(m) + '=' + running[m]).join(' ')}`;
     
     const stateStr = `${chalk.bold('State')}: ${state.stop ? (chalk.red('stopping') + ' (Q to force)') : (chalk.green('running') + ' (any key to stop)')}`;
+
+    const statusStr = `${chalk.bold('Loader Status')}:\n${Object.entries(statusFns).map(([name, cb]) => `${chalk.cyan(name)} - ${cb()}`).join('\n')}`;
+
     const spinner = SPINNER.frames[Math.round((+new Date - runStart) / SPINNER.interval) % SPINNER.frames.length];
-    logUpdate(`\n${logLines.join('\n')}\n${stateStr} ${spinner}\n${runningStr}\n${statuses.join('\n')}`);
+
+    logUpdate(`\n${logLines.join('\n')}\n${stateStr} ${spinner}\n${runningStr}\n${statusStr}\n${apiMethodsStr}`);
   }, SPINNER.interval);
 };
 
@@ -61,6 +66,7 @@ const main = () => {
   const counts = {};
   const running = {};
   const logs = [];
+  const statusFns = {};
   state.count = (name, inc) => {
     counts[name] = (counts[name] || 0) + inc;
   };
@@ -70,7 +76,10 @@ const main = () => {
   };
   state.running = (method, inc) => {
     running[method] = (running[method] || 0) + inc;
-  }
+  };
+  state.statusFn = (name, cb) => {
+    statusFns[name] = cb;
+  };
 
   const loaderPromises = Promise.all(loaders.map(l => {
     const loader = LOADERS[l + '_loader'];
@@ -80,7 +89,7 @@ const main = () => {
     return loader(state);
   }));
 
-  monitor(state, counts, logs, running);
+  monitor(state, counts, logs, running, statusFns);
   process.stdin.setRawMode(true).resume();
   process.stdin.on('data', k => {
     if (state.stop && k == 'Q') {

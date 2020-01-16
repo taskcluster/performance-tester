@@ -1,3 +1,5 @@
+exports.sleep = duration => new Promise(resolve => setTimeout(resolve, duration));
+
 exports.loopUntilStop = (state, interval, cb) => {
   return new Promise((resolve, reject) => {
     const timer = setInterval(() => {

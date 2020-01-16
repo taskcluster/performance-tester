@@ -4,7 +4,7 @@ const taskcluster = require('taskcluster-client');
 const _ = require('lodash');
 const logUpdate = require('log-update');
 const chalk = require('chalk');
-const {apiCall, atRate, loopUntilStop} = require('./util');
+const {sleep, apiCall, atRate, loopUntilStop} = require('./util');
 const yaml = require('js-yaml');
 const jsone = require('json-e');
 
@@ -19,6 +19,12 @@ exports.claimwork_loader = async (state) => {
   const [tqi1, tqi2] = taskQueueId.split('/');
   const parallelism = parseInt(process.env.CLAIMWORK_PARALLELISM);
   const targetCount = process.env.CLAIMWORK_PENDING_COUNT;
+
+  let status = {
+    numRunning: 0,
+    numPending: 0,
+  };
+  state.statusFn(`claimwork for ${taskQueueId}`, () => `${chalk.yellow('Running tasks')}: ${status.numRunning}; ${chalk.yellow('Pending tasks')}: ${status.numPending}`);
 
   const taskTemplateYml = fs.readFileSync(process.env.CLAIMWORK_TASK_FILE);
   const taskTemplate = yaml.safeLoad(taskTemplateYml);
@@ -49,50 +55,100 @@ exports.claimwork_loader = async (state) => {
       }
 
       const {pendingTasks} = res;
+      status.numPending = pendingTasks;
 
       const numNeeded = targetCount - pendingTasks;
       if (numNeeded > 0) {
-        state.log(`priming task queue - ${pendingTasks} pending`);
         await Promise.all(_.range(Math.min(10, numNeeded)).map(makeTask));
       } else {
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await sleep(1000);
       }
     }
   })();
 
-  const claimLoop = Promise.all(_.range(parallelism).map(async (wi) => {
-    while (!state.stop) {
-      const res = await Promise.race([
-        apiCall(state, 'queue.claimWork', () => queue.claimWork(tqi1, tqi2, {
-          tasks: 4,
-          workerGroup: 'load-test',
-          workerId: `load-test-${wi}`,
-        })),
-        stopPromise,
-      ]);
+  const claimLoop = Promise.all(_.range(parallelism).map(wi => {
+    return new Promise((resolve, reject) => {
+      const CAPACITY = 4;
+      const running = {};
 
-      if (state.stop) {
-        return;
-      }
+      let stopLoopPromise, startLoopPromise = Promise.resolve();
 
-      if (!res) {
-        continue;
-      }
+      const runTask = async (taskId, runId) => {
+        // sleep for about a minute, to simulate the task running for that
+        // time.  The queue is designed with this in mind, and we get better
+        // load results with a lot of one-minute tasks than fewer
+        // immediately-resolved tasks.
+        await Promise.race([stopPromise, sleep(1000 * _.random(30, 90))]);
 
-      await Promise.all(res.tasks.map(async claim => {
-        const taskId = claim.status.taskId;
-        const runId = claim.runId;
+        // resolve the task and at the same time make a new task to replace it
+        await Promise.all([
+          apiCall(state, "queue.reportCompleted", () => queue.reportCompleted(taskId, runId)),
+          makeTask(),
+        ]);
+      };
 
-        await apiCall(state, "queue.reportCompleted", () => queue.reportCompleted(taskId, runId));
+      const startLoop = () => {
+        startLoopPromise = startLoopPromise.then(_startLoop).catch(reject);
+      };
 
-        await makeTask();
-      }));
+      const _startLoop = async () => {
+        if (state.stop) {
+          if (!stopLoopPromise) {
+            stopLoopPromise = stopLoop().then(resolve, reject);
+          }
+          return;
+        }
 
-      // note that when there are no tasks this will immediately re-call claimWork
-    }
+        const spareCapacity = CAPACITY - Object.keys(running).length;
+        if (spareCapacity > 0) {
+          const res = await Promise.race([
+            apiCall(state, 'queue.claimWork', () => queue.claimWork(tqi1, tqi2, {
+              tasks: spareCapacity,
+              workerGroup: 'load-test',
+              workerId: `load-test-${wi}`,
+            })),
+            stopPromise,
+          ]);
+
+          if (state.stop) {
+            startLoop(); // will immediately call stopLoop
+            return;
+          }
+
+          if (!res) {
+            // if we got no tasks and have no running tasks, check back shortly..
+            if (Object.keys(running).length == 0) {
+              setTimeout(startLoop, 1000);
+            }
+            return;
+          }
+
+          res.tasks.forEach(claim => {
+            const taskId = claim.status.taskId;
+            const runId = claim.runId;
+            const key = `${taskId}/${runId}`;
+
+            // run the task and remove it from running when done, and call `startLoop` again
+            // when that happens.
+            running[key] = runTask(taskId, runId).catch(reject).then(() => {
+              status.numRunning--;
+              delete running[key];
+              startLoop();
+            });
+            status.numRunning++;
+          });
+        }
+      };
+
+      const stopLoop = async () =>  {
+        await Promise.all(Object.values(running));
+      };
+
+      startLoop();
+    });
   }));
 
-  await Promise.all([primeLoop, claimLoop]);
+  await Promise.all([claimLoop, primeLoop]);
 };
 
 // expandscopes: call auth.expandScopes with items randomly selected from
