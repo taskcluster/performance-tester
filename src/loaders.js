@@ -106,8 +106,7 @@ exports.expandscopes_loader = async (state) => {
   await atRate(state, async () => {
     const size = _.random(1, scopes.length);
     const toExpand = _.sampleSize(scopes, size);
-    await auth.expandScopes({scopes: toExpand});
-    state.count('expandscopes', 1);
+    await apiCall(state, "auth.expandScopes", cb => auth.expandScopes({scopes: toExpand}));
   }, rate);
 };
 

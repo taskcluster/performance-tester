@@ -32,15 +32,18 @@ export EXPANDSCOPES_RATE=100
 ```
 This loader calls `auth.expandScopes` with a random subset of the scopes given as a the space-separated list in EXPANDSCOPES.
 
-### createtasks
+### claimwork
 
 **Configuration**:
 ```shell
-export LOADERS="createtasks"
-export CREATETASKS_TASKQUEUID=proj-taskcluster/load-test
-export CREATETASKS_COUNT=10
-export CREATETASKS_TASK_FILE=./task.yml
+export LOADERS="claimwork"
+export CLAIMWORK_TASKQUEUID=proj-taskcluster/load-test
+export CLAIMWORK_PENDING_COUNT=10
+export CLAIMWORK_PARALLELISM=10
+export CLAIMWORK_TASK_FILE=./task.yml
 ```
 
-This loader polls `queue.pendingTasks` every 2 seconds and ensures that at least CREATETASKS_COUNT tasks are in the queue, adding tasks from the JSON-e template in CREATETASKS_TASK_FILE.
-The intent of this load generator is to create a set of tasks for another load generator to process.
+This loader creates and resolves tasks.  It ensures that there are at least
+CLAIMWORK_PENDING_COUNT tasks pending, adding tasks where necessary.
+Otherwise, it claims tasks from the queue and resolves them, and then creates a
+new task to replace each one.

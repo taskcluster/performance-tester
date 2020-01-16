@@ -58,6 +58,11 @@ exports.apiCall = async (state, name, cb) => {
       state.count(name + '-500', 1);
       return;
     }
+    if (err.statusCode === 502) {
+      state.log(`502 error from ${name}`);
+      state.count(name + '-502', 1);
+      return;
+    }
     if (err.code === 'ECONNABORTED') {
       state.log(`timeout from ${name}`);
       state.count(name + '-timeout', 1);
