@@ -44,18 +44,18 @@ const monitor = (state, counts, logs, running, statusFns) => {
     if (logs.length > LOG_LENGTH) {
       logs.splice(0, logs.length - LOG_LENGTH);
     }
-    const logLines = logs.map(([when, msg]) => `${chalk.magenta(when)} - ${msg}`);
+    const logLinesStr = logs.map(([when, msg]) => `${chalk.magenta(when)} - ${msg}`).join('\n');
+
+
+    const statusStr = `${chalk.bold('Loader Status')}:\n${Object.entries(statusFns).map(([name, cb]) => `${chalk.cyan(name)} - ${cb()}`).join('\n')}`;
+
+    const stateStr = `${chalk.bold('State')}: ${state.stop ? (chalk.red('stopping') + ' (Q to force)') : (chalk.green('running') + ' (any key to stop)')}`;
+    const spinner = SPINNER.frames[Math.round((+new Date - runStart) / SPINNER.interval) % SPINNER.frames.length];
 
     const runningCalls = Object.keys(running).sort();
     const runningStr = `${chalk.bold('Running API Calls:')} ${runningCalls.map(m => chalk.yellow(m) + '=' + running[m]).join(' ')}`;
     
-    const stateStr = `${chalk.bold('State')}: ${state.stop ? (chalk.red('stopping') + ' (Q to force)') : (chalk.green('running') + ' (any key to stop)')}`;
-
-    const statusStr = `${chalk.bold('Loader Status')}:\n${Object.entries(statusFns).map(([name, cb]) => `${chalk.cyan(name)} - ${cb()}`).join('\n')}`;
-
-    const spinner = SPINNER.frames[Math.round((+new Date - runStart) / SPINNER.interval) % SPINNER.frames.length];
-
-    logUpdate(`\n${logLines.join('\n')}\n${stateStr} ${spinner}\n${runningStr}\n${statusStr}\n${apiMethodsStr}`);
+    logUpdate(`\n${logLinesStr}\n${statusStr}\n${stateStr} ${spinner}\n${runningStr}\n${apiMethodsStr}`);
   }, SPINNER.interval);
 };
 
