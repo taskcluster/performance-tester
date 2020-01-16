@@ -7,6 +7,10 @@ const LOADERS = require('./loaders');
 const spinners = require('cli-spinners');
 const yaml = require('js-yaml');
 const {loopUntilStop} = require('./util');
+const Monitor = require('./monitor');
+const Logger = require('./logger');
+const TCAPI = require('./api');
+const Stopper = require('./stopper');
 
 const monitor = (state, counts, logs, running, statusFns) => {
   const WINDOW_WIDTH = 10000;
@@ -65,46 +69,22 @@ const main = () => {
   console.log(`reading ${process.argv[2]}`);
   const config = yaml.safeLoad(fs.readFileSync(process.argv[2]));
 
-  const state = {stop: false};
-
-  const counts = {};
-  const running = {};
-  const logs = [];
-  const statusFns = {};
-  state.count = (name, inc) => {
-    counts[name] = (counts[name] || 0) + inc;
-  };
-  state.log = (msg) => {
-    const now = new Date();
-    msg.split('\n').forEach(l => logs.push([now, l]));
-  };
-  state.running = (method, inc) => {
-    running[method] = (running[method] || 0) + inc;
-  };
-  state.statusFn = (name, cb) => {
-    statusFns[name] = cb;
-  };
+  const monitor = new Monitor();
+  const logger = new Logger(monitor);
+  const stopper = new Stopper(monitor, logger);
+  const tcapi = new TCAPI(monitor, logger);
 
   const loaderPromises = Promise.all(Object.entries(config.loaders).map(([name, settings]) => {
     const loader = LOADERS[settings.use + '_loader'];
     if (!loader) {
       throw new Error('no such loader ' + match[1]);
     }
-    state.log(`starting loader ${name}`);
-    return loader(state, settings);
+    logger.log(`starting loader ${name}`);
+    return loader({name, monitor, logger, stopper, tcapi, config, settings});
   }));
 
-  monitor(state, counts, logs, running, statusFns);
-  process.stdin.setRawMode(true).resume();
-  process.stdin.on('data', k => {
-    if (state.stop && k == 'Q') {
-      process.exit(1);
-    }
-    state.stop = true;
-  });
-
   return loaderPromises.catch(err => {
-    state.stop = true;
+    stopper.forceStop(err);
     throw err;
   });
 };

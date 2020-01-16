@@ -4,7 +4,7 @@ const taskcluster = require('taskcluster-client');
 const _ = require('lodash');
 const logUpdate = require('log-update');
 const chalk = require('chalk');
-const {sleep, apiCall, atRate, loopUntilStop} = require('./util');
+const {sleep, atRate, loopUntilStop} = require('./util');
 const yaml = require('js-yaml');
 const jsone = require('json-e');
 const https = require('https');
@@ -19,7 +19,7 @@ clientConfig.agent = new https.Agent({
 });
 
 // claimwork: create, claim and resolve tasks from a queue
-exports.claimwork_loader = async (state, settings) => {
+exports.claimwork_loader = async ({name, stopper, logger, settings, monitor, tcapi}) => {
   const queue = new taskcluster.Queue(clientConfig);
   const taskQueueId = settings['task-queue-id'];
   const [tqi1, tqi2] = taskQueueId.split('/');
@@ -30,32 +30,28 @@ exports.claimwork_loader = async (state, settings) => {
     numRunning: 0,
     numPending: 0,
   };
-  state.statusFn(`claimwork for ${taskQueueId}`, () => `${chalk.yellow('Running tasks')}: ${status.numRunning}; ${chalk.yellow('Pending tasks')}: ${status.numPending}`);
+
+  monitor.output_fn(5, () => ` ▶ ${chalk.bold.cyan(name)}: ` +
+    `${chalk.yellow('taskQueueId')}: ${taskQueueId}; ` +
+    `${chalk.yellow('Running tasks')}: ${status.numRunning}; ` +
+    `${chalk.yellow('Pending tasks')}: ${status.numPending}\n`);
 
   const taskTemplateYml = fs.readFileSync(settings['task-file']);
   const taskTemplate = yaml.safeLoad(taskTemplateYml);
   const makeTask = async () => {
     const task = jsone(taskTemplate, {});
-    assert.equal(task.provisionerId, tqi1);
-    assert.equal(task.workerType, tqi2);
+    task.provisionerId = tqi1;
+    task.workerType = tqi2;
     const taskId = taskcluster.slugid();
-    await apiCall(state, 'queue.createTask', () => queue.createTask(taskId, task));
+    await tcapi.call('queue.createTask', () => queue.createTask(taskId, task));
   };
-
-  // a promise that resolves when stop is true; used to bail out of the long
-  // queue.claimWork calls
-  stopPromise = new Promise(resolve => setInterval(() => {
-    if (state.stop) {
-      resolve();
-    }
-  }, 500));
 
   // one loop to "prime" things by ensuring there are at least targetCount
   // tasks in the queue, and one loop to claim those tasks and create new
   // tasks to replace them.
   const primeLoop = (async () => {
-    while (!state.stop) {
-      const res = await apiCall(state, 'queue.pendingTasks', () => queue.pendingTasks(tqi1, tqi2));
+    while (!stopper.stop) {
+      const res = await tcapi.call('queue.pendingTasks', () => queue.pendingTasks(tqi1, tqi2));
       if (!res) {
         continue;
       }
@@ -84,11 +80,11 @@ exports.claimwork_loader = async (state, settings) => {
         // time.  The queue is designed with this in mind, and we get better
         // load results with a lot of one-minute tasks than fewer
         // immediately-resolved tasks.
-        await Promise.race([stopPromise, sleep(1000 * _.random(30, 90))]);
+        await Promise.race([stopper.promise, sleep(1000 * _.random(30, 90))]);
 
         // resolve the task and at the same time make a new task to replace it
         await Promise.all([
-          apiCall(state, "queue.reportCompleted", () => queue.reportCompleted(taskId, runId)),
+          tcapi.call("queue.reportCompleted", () => queue.reportCompleted(taskId, runId)),
           makeTask(),
         ]);
       };
@@ -98,7 +94,7 @@ exports.claimwork_loader = async (state, settings) => {
       };
 
       const _startLoop = async () => {
-        if (state.stop) {
+        if (stopper.stop) {
           if (!stopLoopPromise) {
             stopLoopPromise = stopLoop().then(resolve, reject);
           }
@@ -108,25 +104,28 @@ exports.claimwork_loader = async (state, settings) => {
         const spareCapacity = CAPACITY - Object.keys(running).length;
         if (spareCapacity > 0) {
           const res = await Promise.race([
-            apiCall(state, 'queue.claimWork', () => queue.claimWork(tqi1, tqi2, {
+            tcapi.call('queue.claimWork', () => queue.claimWork(tqi1, tqi2, {
               tasks: spareCapacity,
               workerGroup: 'load-test',
               workerId: `load-test-${wi}`,
             })),
-            stopPromise,
+            stopper.promise,
           ]);
 
-          if (state.stop) {
+          if (stopper.stop) {
             startLoop(); // will immediately call stopLoop
             return;
           }
 
           if (!res) {
-            // if we got no tasks and have no running tasks, check back shortly..
+            return;
+          }
+
+          // if we got no tasks and have no running tasks, check back shortly..
+          if (res.tasks.length < 1) {
             if (Object.keys(running).length == 0) {
               setTimeout(startLoop, 1000);
             }
-            return;
           }
 
           res.tasks.forEach(claim => {
@@ -159,16 +158,14 @@ exports.claimwork_loader = async (state, settings) => {
 
 // expandscopes: call auth.expandScopes with items randomly selected from
 // $EXPANDSCOPES
-exports.expandscopes_loader = async (state, settings) => {
+exports.expandscopes_loader = async ({name, stopper, tcapi, settings, monitor}) => {
   const auth = new taskcluster.Auth(clientConfig);
   const scopes = settings.scopes;
   const rate = settings.rate;
 
-  await atRate(state, async () => {
+  await atRate(stopper, async () => {
     const size = _.random(1, scopes.length);
     const toExpand = _.sampleSize(scopes, size);
-    await apiCall(state, "auth.expandScopes", cb => auth.expandScopes({scopes: toExpand}));
+    await tcapi.call("auth.expandScopes", cb => auth.expandScopes({scopes: toExpand}));
   }, rate);
 };
-
-

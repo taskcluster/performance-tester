@@ -16,7 +16,7 @@ exports.loopUntilStop = (state, interval, cb) => {
   });
 };
 
-exports.atRate = (state, cb, rate) => {
+exports.atRate = (stopper, cb, rate) => {
   let started = 0;
   let completed = 0;
   let outstanding = {};
@@ -33,7 +33,7 @@ exports.atRate = (state, cb, rate) => {
         }, reject);
         started++;
       }
-      if (state.stop) {
+      if (stopper.stop) {
         clearInterval(timer);
         Promise.all(Object.values(outstanding)).then(resolve);
       }
@@ -43,33 +43,3 @@ exports.atRate = (state, cb, rate) => {
     }, rate < 3 ? 100 : 10);
   });
 };
-
-exports.apiCall = async (state, name, cb) => {
-  try {
-    state.running(name, 1);
-    try {
-      res = await cb();
-    } finally {
-      state.running(name, -1);
-    }
-    state.count(name, 1);
-    return res;
-  } catch (err) {
-    if (err.statusCode === 500) {
-      state.log(`500 error from ${name}`);
-      state.count(name + '-500', 1);
-      return;
-    }
-    if (err.statusCode === 502) {
-      state.log(`502 error from ${name}`);
-      state.count(name + '-502', 1);
-      return;
-    }
-    if (err.code === 'ECONNABORTED') {
-      state.log(`timeout from ${name}`);
-      state.count(name + '-timeout', 1);
-      return;
-    }
-    throw err;
-  }
-}
