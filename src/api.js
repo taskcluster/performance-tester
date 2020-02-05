@@ -27,34 +27,63 @@ class TCAPI {
     monitor.output_fn(30, () => this.output());
   }
 
-  output() {
-    const WINDOW_WIDTH = 10000;
+  update_counts() {
     const now = +new Date();
+    const WINDOW_WIDTH = 5 * 60 * 1000;
+    const TIMES = [
+      {name: 'latest', since: now},
+      {name: '5m', since: now - 5 * 60 * 1000},
+      {name: '1m', since: now - 1 * 60 * 1000},
+      {name: '5s', since: now - 1000},
+    ];
+
+    // drop items that are outside of the window
     while (this.hist.length && this.hist[0][0] < now - WINDOW_WIDTH) {
       this.hist.splice(0, 1);
     }
-    this.hist.push([now, _.clone(this.counts)]);
 
-    if (this.hist.length < 2) {
-      return '';
-    }
-    const [startTime, startCount] = this.hist[0];
-    const [endTime, endCount] = this.hist[this.hist.length - 1];
-    const durSecs = (endTime - startTime) / 1000;
-
-    const props = Object.keys(endCount).sort();
-    const apiMethods = [];
-    for (let prop of props) {
-      const start = startCount[prop] || 0;
-      const end = endCount[prop];
-      const rate = (end - start) / durSecs;
-      if (rate > 10) {
-        apiMethods.push(` ▶ ${chalk.yellow(prop)}: ${Math.round(rate)} per second`);
-      } else {
-        apiMethods.push(` ▶ ${chalk.yellow(prop)}: ${Math.round(rate * 100) / 100} per second`);
+    // now find counts that are at least as old as each of the times
+    const res = TIMES.map(({name, since}) => ({name, since, time: undefined, counts: undefined}));
+    for (let [time, counts] of this.hist) {
+      for (let r of res) {
+        if (time <= r.since) {
+          r.time = time;
+          r.counts = counts;
+        }
       }
     }
-    const apiMethodStr = `${chalk.bold('API Method Rates')}:\n${apiMethods.join('\n')}`;
+
+    return res.map(({name, time, counts}) => ({name, time, counts}));
+  }
+
+  output() {
+    const now = +new Date();
+    if (!this.hist.length > 0 || this.hist[this.hist.length - 1][0] < now - 500) {
+      this.hist.push([now, _.clone(this.counts)]);
+    }
+    const hist = this.update_counts();
+    const [latest] = hist.splice(0, 1);
+
+    const apiMethods = [];
+    for (let meth of Object.keys(this.counts).sort()) {
+      const line = [];
+      for (let then of hist) {
+        if (latest.counts && then.counts && then.counts[meth] && latest.counts[meth]) {
+          const dur = latest.time - then.time;
+          const diff = latest.counts[meth] - then.counts[meth];
+          const rate = diff * 1000 / dur;
+          if (rate > 10) {
+            line.push(chalk`{bold ${Math.round(rate)}/s} (${then.name})`);
+          } else {
+            line.push(chalk`{bold ${Math.round(rate * 100)/100}/s} (${then.name})`);
+          }
+        }
+      }
+      if (line.length > 0) {
+        apiMethods.push(` ▶ ${chalk.yellow(meth)}: ${line.join(' / ')}`);
+      }
+    }
+    const apiMethodStr = apiMethods.length > 0 ? `${chalk.bold('API Method Rates')}:\n${apiMethods.join('\n')}` : '';
 
     const runningCalls = Object.keys(this.running).sort();
     const runningStr = `${chalk.bold('Running API Calls:')} ${runningCalls.map(m => chalk.yellow(m) + '=' + this.running[m]).join(' ')}`;
