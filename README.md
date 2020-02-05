@@ -6,44 +6,60 @@ A performance tester for Taskcluster deployments.
 
 # Usage
 
-Configuration is via env vars.
-There are a set of loaders described below, and the desired loaders are specified in LOADERS as a space-separated list of `<loader>@<rate>` where the rate is requests per second.
+```
+yarn load <cfg>
+```
+
+The configuration file contains an object `loaders` with an array of loaders to
+run.  Each object has a name, a `use` property giving the loader
+implementation, and settings for that implementation.
+
+The output is a frequently-updated textual display giving rates of various API
+methods, counts of running API calls, and metadata about each running loader.
+
 For example:
 
-```shell
-export TASKCLUSTER_ROOT_URL=..
-export TASKCLUSTER_CLIENT_ID=..
-export TASKCLUSTER_ACCESS_TOKEN=..
-export LOADERS="expandscopes@100"
-export EXPANDSCOPES="assume:repo:github.com/taskcluster/taskcluster:push assume:*"
-export EXPANDSCOPES_RATE=100
-yarn load
+```yaml
+loaders:
+  test-built-in:
+    use: builtin
+    pending-count: 100
 ```
 
 ## Loaders
 
-### expandscopes
+### builtin
 
-**Configuration**:
-```shell
-export LOADERS="expandscopes"
-export EXPANDSCOPES="somescope someotherscope"
-export EXPANDSCOPES_RATE=100
-```
-This loader calls `auth.expandScopes` with a random subset of the scopes given as a the space-separated list in EXPANDSCOPES.
+* `pending-count` - target pending count for the `built-in/succeed` worker pool
+
+This loader keeps the pending queue full for the built-in-workers service.
+
+This is somewhat difficult since `queue.pendingTasks` does not update immediately, so the best approach is to set a high pending count.
 
 ### claimwork
 
-**Configuration**:
-```shell
-export LOADERS="claimwork"
-export CLAIMWORK_TASKQUEUID=proj-taskcluster/load-test
-export CLAIMWORK_PENDING_COUNT=10
-export CLAIMWORK_PARALLELISM=10
-export CLAIMWORK_TASK_FILE=./task.yml
-```
+* `task-queue-id` - task queue to create tasks in
+* `parallelism` - number of "workers" to run in parallel
+* `pending-count` - target pending count for the `built-in/succeed` worker pool
 
-This loader creates and resolves tasks.  It ensures that there are at least
-CLAIMWORK_PENDING_COUNT tasks pending, adding tasks where necessary.
-Otherwise, it claims tasks from the queue and resolves them, and then creates a
-new task to replace each one.
+This loader is similar to builtin, but runs the tasks itself with a simulated
+worker.  The same warnings apply about the pending count, but this loader helps
+the situation by creating a new task immediately every time it resolves a task.
+So a pending-count of 1000 should do.
+
+### expandscopes
+
+* `rate` - the rate at which to call the API method (req/s)
+* `scopes` - the scopes to expand
+
+This loader calls `auth.expandScopes` with random subsets of the given scopes,
+attempting to do so at the given rate.  It will make multiple parallel calls to
+achieve that rate, if necessary.
+
+### gettask
+
+* `rate` - the rate at which to call the API method (req/s)
+
+This loader calls `queue.task` with random taskIds for tasks that other loaders
+have created.  It can't start until such a task is created, which may tak ea
+few seconds.
