@@ -1,35 +1,9 @@
-const fs = require('fs');
-const assert = require('assert');
 const taskcluster = require('taskcluster-client');
 const _ = require('lodash');
-const logUpdate = require('log-update');
-const chalk = require('chalk');
-const {sleep, atRate, loopUntilStop} = require('./util');
-const yaml = require('js-yaml');
+const {sleep} = require('../util');
 const jsone = require('json-e');
-const https = require('https');
-
-const clientConfig = process.env.TASKCLUSTER_PROXY_URL ?
-  {rootUrl: process.env.TASKCLUSTER_PROXY_URL} :
-  taskcluster.fromEnvVars();
-clientConfig.agent = new https.Agent({
-  keepAlive: true,
-  maxSockets: Infinity,
-  maxFreeSockets: 256,
-});
-
-const TASK_TEMPLATE =  {
-  created: {$fromNow: '0 seconds'},
-  deadline: {$fromNow: '10 minutes'},
-  expires: {$fromNow: '10 minutes'},
-  payload: {},
-  metadata: {
-    name: 'Test Task',
-    description: 'A task!',
-    owner: 'nobody@mozilla.com',
-    source: 'https://github.com/taskcluster/performance-tester',
-  },
-};
+const chalk = require('chalk');
+const {clientConfig, TASK_TEMPLATE} = require('./common');
 
 // claimwork: create, claim and resolve tasks from a queue
 exports.claimwork_loader = async ({name, stopper, logger, settings, monitor, tcapi}) => {
@@ -167,67 +141,3 @@ exports.claimwork_loader = async ({name, stopper, logger, settings, monitor, tca
 
   await Promise.all([claimLoop, primeLoop]);
 };
-
-// expandscopes: call auth.expandScopes with items randomly selected from
-// $EXPANDSCOPES
-exports.expandscopes_loader = async ({name, stopper, tcapi, settings, monitor}) => {
-  const auth = new taskcluster.Auth(clientConfig);
-  const scopes = settings.scopes;
-  const rate = settings.rate;
-
-  await atRate(stopper, async () => {
-    const size = _.random(1, scopes.length);
-    const toExpand = _.sampleSize(scopes, size);
-    await tcapi.call("auth.expandScopes", cb => auth.expandScopes({scopes: toExpand}));
-  }, rate);
-};
-
-// builtin: create tasks that the built-in-workers service resolves
-exports.builtin_loader = async ({name, stopper, logger, settings, monitor, tcapi}) => {
-  const queue = new taskcluster.Queue(clientConfig);
-  const [tqi1, tqi2] = "built-in/success".split('/');
-  const targetCount = settings['pending-count'];
-
-  let status = {
-    numPending: 0,
-  };
-
-  monitor.output_fn(5, () => ` ▶ ${chalk.bold.cyan(name)}: ` +
-    `${chalk.yellow('Pending tasks')}: ${status.numPending}\n`);
-
-  const makeTask = async () => {
-    const task = jsone(TASK_TEMPLATE, {});
-    task.provisionerId = tqi1;
-    task.workerType = tqi2;
-    const taskId = taskcluster.slugid();
-    await tcapi.call('queue.createTask', () => queue.createTask(taskId, task));
-    status.numPending++;
-  };
-
-  // ensure that there are at least targetCount tasks in the queue.
-  let nextPoll = 0;
-  while (!stopper.stop) {
-    const now = +new Date();
-    if (now < nextPoll) {
-      await sleep(nextPoll - now);
-    }
-
-    const res = await tcapi.call('queue.pendingTasks', () => queue.pendingTasks(tqi1, tqi2));
-    // the pendingTasks result is cached for 20s, so don't try to call it until that time
-    nextPoll = now + 20000;
-
-    if (!res) {
-      continue;
-    }
-
-    const {pendingTasks} = res;
-    status.numPending = pendingTasks;
-
-    const numNeeded = targetCount - pendingTasks;
-    if (numNeeded > 0) {
-      // make up to 100 tasks at a time
-      await Promise.all(_.range(Math.min(100, numNeeded)).map(makeTask));
-    }
-  }
-};
-
