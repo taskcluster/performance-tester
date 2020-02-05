@@ -18,6 +18,19 @@ clientConfig.agent = new https.Agent({
   maxFreeSockets: 256,
 });
 
+const TASK_TEMPLATE =  {
+  created: {$fromNow: '0 seconds'},
+  deadline: {$fromNow: '10 minutes'},
+  expires: {$fromNow: '10 minutes'},
+  payload: {},
+  metadata: {
+    name: 'Test Task',
+    description: 'A task!',
+    owner: 'nobody@mozilla.com',
+    source: 'https://github.com/taskcluster/performance-tester',
+  },
+};
+
 // claimwork: create, claim and resolve tasks from a queue
 exports.claimwork_loader = async ({name, stopper, logger, settings, monitor, tcapi}) => {
   const queue = new taskcluster.Queue(clientConfig);
@@ -36,10 +49,8 @@ exports.claimwork_loader = async ({name, stopper, logger, settings, monitor, tca
     `${chalk.yellow('Running tasks')}: ${status.numRunning}; ` +
     `${chalk.yellow('Pending tasks')}: ${status.numPending}\n`);
 
-  const taskTemplateYml = fs.readFileSync(settings['task-file']);
-  const taskTemplate = yaml.safeLoad(taskTemplateYml);
   const makeTask = async () => {
-    const task = jsone(taskTemplate, {});
+    const task = jsone(TASK_TEMPLATE, {});
     task.provisionerId = tqi1;
     task.workerType = tqi2;
     const taskId = taskcluster.slugid();
