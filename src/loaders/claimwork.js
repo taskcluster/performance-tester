@@ -3,7 +3,7 @@ const _ = require('lodash');
 const {sleep} = require('../util');
 const jsone = require('json-e');
 const chalk = require('chalk');
-const {clientConfig, TASK_TEMPLATE} = require('./common');
+const {clientConfig, TASK_TEMPLATE, addTaskId} = require('./common');
 
 // claimwork: create, claim and resolve tasks from a queue
 exports.claimwork_loader = async ({name, stopper, logger, settings, monitor, tcapi}) => {
@@ -29,6 +29,7 @@ exports.claimwork_loader = async ({name, stopper, logger, settings, monitor, tca
     task.workerType = tqi2;
     const taskId = taskcluster.slugid();
     await tcapi.call('queue.createTask', () => queue.createTask(taskId, task));
+    addTaskId(taskId);
   };
 
   // one loop to "prime" things by ensuring there are at least targetCount

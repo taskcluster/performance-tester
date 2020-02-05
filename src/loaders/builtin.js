@@ -1,7 +1,7 @@
 const taskcluster = require('taskcluster-client');
 const _ = require('lodash');
 const {sleep} = require('../util');
-const {clientConfig, TASK_TEMPLATE} = require('./common');
+const {clientConfig, TASK_TEMPLATE, addTaskId} = require('./common');
 const chalk = require('chalk');
 
 // builtin: create tasks that the built-in-workers service resolves
@@ -23,6 +23,7 @@ exports.builtin_loader = async ({name, stopper, logger, settings, monitor, tcapi
     task.workerType = tqi2;
     const taskId = taskcluster.slugid();
     await tcapi.call('queue.createTask', () => queue.createTask(taskId, task));
+    addTaskId(taskId);
     status.numPending++;
   };
 
