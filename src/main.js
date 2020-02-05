@@ -77,7 +77,7 @@ const main = () => {
   const loaderPromises = Promise.all(Object.entries(config.loaders).map(([name, settings]) => {
     const loader = LOADERS[settings.use + '_loader'];
     if (!loader) {
-      throw new Error('no such loader ' + match[1]);
+      throw new Error('no such loader ' + loader);
     }
     logger.log(`starting loader ${name}`);
     return loader({name, monitor, logger, stopper, tcapi, config, settings});
