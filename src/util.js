@@ -1,3 +1,5 @@
+const assert = require('assert');
+
 exports.sleep = duration => new Promise(resolve => setTimeout(resolve, duration));
 
 exports.loopUntilStop = (state, interval, cb) => {
@@ -17,6 +19,7 @@ exports.loopUntilStop = (state, interval, cb) => {
 };
 
 exports.atRate = (stopper, cb, rate) => {
+  assert(rate, "rate omitted");
   let started = 0;
   let completed = 0;
   let outstanding = {};

@@ -28,24 +28,23 @@ loaders:
 
 ## Loaders
 
-### builtin
+### createtask
 
-* `pending-count` - target pending count for the `built-in/succeed` worker pool
+* `task-queue-id` - task queue to create tasks in
+* `rate` - target pending count for the `built-in/succeed` worker pool
 
-This loader keeps the pending queue full for the built-in-workers service.
+This loader creates tasks for the given task queue at the given rate.
 
-This is somewhat difficult since `queue.pendingTasks` does not update immediately, so the best approach is to set a high pending count.
+It also monitors the pending count for the queue, and will throttle itself it
+that goes above 20s worth of tasks.
 
 ### claimwork
 
-* `task-queue-id` - task queue to create tasks in
-* `parallelism` - number of "workers" to run in parallel
-* `pending-count` - target pending count for the `built-in/succeed` worker pool
+* `task-queue-id` - task queue to claim from
+* `parallelism` - number of "workers" to run in parallel (each with capacity=4)
 
-This loader is similar to builtin, but runs the tasks itself with a simulated
-worker.  The same warnings apply about the pending count, but this loader helps
-the situation by creating a new task immediately every time it resolves a task.
-So a pending-count of 1000 should do.
+This loader claims and "runs" tasks with a simulated worker that takes about
+60s to complete a task.
 
 ### expandscopes
 
