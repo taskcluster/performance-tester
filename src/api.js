@@ -29,10 +29,10 @@ class TCAPI {
 
   update_counts() {
     const now = +new Date();
-    const WINDOW_WIDTH = 5 * 60 * 1000;
+    const WINDOW_WIDTH = 10 * 60 * 1000 + 1000; // must be > max `since` in TIMES
     const TIMES = [
       {name: 'latest', since: now},
-      {name: '5m', since: now - 5 * 60 * 1000},
+      {name: '10m', since: now - 10 * 60 * 1000},
       {name: '1m', since: now - 1 * 60 * 1000},
       {name: '5s', since: now - 1000},
     ];
