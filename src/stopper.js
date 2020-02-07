@@ -22,7 +22,7 @@ class Stopper {
     this.runStart = +new Date();
 
     // show the current state
-    monitor.output_fn(5, () => `${this.output_state()} ${this.output_spinner()}\n`);
+    monitor.output_fn(4, () => `${this.output_state()} ${this.output_spinner()}\n`);
   }
 
   forceStop(err) {
