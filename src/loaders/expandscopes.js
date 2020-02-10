@@ -14,10 +14,10 @@ exports.expandscopes_loader = async ({name, stopper, tcapi, settings, monitor}) 
   monitor.output_fn(5, () => ` ▶ ${chalk.bold.cyan(name)}: ` +
     `${chalk.yellow('target rate')}: ${rate} rq/s\n`);
 
-  await atRate(stopper, async () => {
+  await atRate({stopper, logger, name, rate}, async () => {
     const size = _.random(1, scopes.length);
     const toExpand = _.sampleSize(scopes, size);
     await tcapi.call("auth.expandScopes", cb => auth.expandScopes({scopes: toExpand}));
-  }, rate);
+  });
 };
 

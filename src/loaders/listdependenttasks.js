@@ -23,8 +23,8 @@ exports.listdependenttasks_loader = async ({name, stopper, logger, tcapi, settin
   waiting = false;
   logger.log(`${name}: have some taskIds and starting to call queue.listDependentTasks`);
 
-  await atRate(stopper, async () => {
+  await atRate({stopper, logger, name, rate}, async () => {
     const taskId = await getTaskId();
     await tcapi.call("queue.listDependentTasks", cb => queue.listDependentTasks(taskId));
-  }, rate);
+  });
 };

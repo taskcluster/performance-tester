@@ -62,3 +62,19 @@ achieve that rate, if necessary.
 This loader calls `queue.task` with random taskIds for tasks that other loaders
 have created.  It can't start until such a task is created, which may tak ea
 few seconds.
+
+### gettaskstatus
+
+* `rate` - the rate at which to call the API method (req/s)
+
+This loader calls `queue.status` with random taskIds for tasks that other loaders
+have created.  It can't start until such a task is created, which may tak ea
+few seconds.
+
+### secrets
+
+* `rate` - the rate at which to call the API method (req/s)
+* `secret` - name of the secret to set (WARNING: will be overwritten!)
+
+This loader calls `secrets.get` with the given secret name, after putting a
+fake payload into the secret.

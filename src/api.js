@@ -123,6 +123,10 @@ class TCAPI {
         this.logger.log(`timeout from ${name}`);
         return;
       }
+      if (err.code === 'ECONNRESET') {
+        this.logger.log(`connection reset from ${name}`);
+        return;
+      }
       throw err;
     }
   }

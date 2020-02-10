@@ -7,12 +7,11 @@ const {clientConfig, TASK_TEMPLATE, addTaskId} = require('./common');
 
 // claimwork: claim and resolve tasks from a queue
 exports.claimwork_loader = async ({name, stopper, logger, settings, monitor, tcapi}) => {
-  const WORKER_CAPACITY = 4;
   const queue = new taskcluster.Queue(clientConfig);
   const taskQueueId = settings['task-queue-id'];
   const [tqi1, tqi2] = taskQueueId.split('/');
   const parallelism = settings['parallelism'];
-  const targetCount = settings['pending-count'];
+  const capacity = settings['capacity'] || 1;
 
   let status = {
     numRunning: 0,
@@ -20,7 +19,7 @@ exports.claimwork_loader = async ({name, stopper, logger, settings, monitor, tca
 
   monitor.output_fn(5, () => ` ▶ ${chalk.bold.cyan(name)}: ` +
     `${chalk.yellow('taskQueueId')}: ${taskQueueId}; ` +
-    `${chalk.yellow('Idle capacity')}: ${WORKER_CAPACITY * parallelism - status.numRunning}; ` +
+    `${chalk.yellow('Idle capacity')}: ${capacity * parallelism - status.numRunning}; ` +
     `${chalk.yellow('Running tasks')}: ${status.numRunning}\n`);
 
   await Promise.all(_.range(parallelism).map(wi => {
@@ -35,6 +34,9 @@ exports.claimwork_loader = async ({name, stopper, logger, settings, monitor, tca
         // load results with a lot of one-minute tasks than fewer
         // immediately-resolved tasks.
         await Promise.race([stopper.promise, sleep(1000 * _.random(30, 90))]);
+        if (_.random(0, 1)) {
+          await tcapi.call("queue.reclaimTask", () => queue.reclaimTask(taskId, runId));
+        }
         await tcapi.call("queue.reportCompleted", () => queue.reportCompleted(taskId, runId));
       };
 
@@ -50,7 +52,7 @@ exports.claimwork_loader = async ({name, stopper, logger, settings, monitor, tca
           return;
         }
 
-        const spareCapacity = WORKER_CAPACITY - Object.keys(running).length;
+        const spareCapacity = capacity - Object.keys(running).length;
         if (spareCapacity > 0) {
           const res = await Promise.race([
             tcapi.call('queue.claimWork', () => queue.claimWork(tqi1, tqi2, {

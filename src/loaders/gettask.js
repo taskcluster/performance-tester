@@ -4,7 +4,6 @@ const {atRate} = require('../util');
 const chalk = require('chalk');
 const {clientConfig, getTaskId} = require('./common');
 
-// expandscopes: call queue.task(taskId) for taskIds created by other loaders
 exports.gettask_loader = async ({name, stopper, logger, tcapi, settings, monitor}) => {
   const queue = new taskcluster.Queue(clientConfig);
   const rate = settings.rate;
@@ -21,12 +20,12 @@ exports.gettask_loader = async ({name, stopper, logger, tcapi, settings, monitor
   // wait for a taskId..
   await getTaskId();
   waiting = false;
-  logger.log(`${name}: have some taskIds and starting to call getTask`);
+  logger.log(`${name}: have some taskIds and starting to call queue.task`);
 
-  await atRate(stopper, async () => {
+  await atRate({stopper, logger, name, rate}, async () => {
     const taskId = await getTaskId();
     await tcapi.call("queue.task", cb => queue.task(taskId));
-  }, rate);
+  });
 };
 
 

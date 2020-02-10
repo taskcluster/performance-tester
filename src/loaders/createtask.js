@@ -21,7 +21,7 @@ exports.createtask_loader = async ({name, stopper, logger, settings, monitor, tc
     `${chalk.yellow('target rate')}: ${rate} rq/s; ` +
     `${chalk.yellow('Pending tasks')}: ${numPending}\n`);
 
-  const creator = atRate(stopper, async () => {
+  const creator = atRate({stopper, logger, name, rate}, async () => {
     if (throttling) {
       return;
     }
@@ -32,7 +32,7 @@ exports.createtask_loader = async ({name, stopper, logger, settings, monitor, tc
     const taskId = taskcluster.slugid();
     await tcapi.call('queue.createTask', () => queue.createTask(taskId, task));
     addTaskId(taskId);
-  }, rate);
+  });
 
   const pendingMonitor = new Promise((resolve, reject) => {
     const timer = setInterval(() => {
