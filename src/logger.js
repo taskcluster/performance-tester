@@ -20,7 +20,7 @@ class Logger {
       this.logs.splice(0, this.logs.length - LOG_LENGTH);
     }
 
-    return this.logs.map(([when, msg]) => `${chalk.magenta(when)} - ${msg}`).join('\n') + '\n';
+    return this.logs.map(([when, msg]) => `${chalk.magenta(when.toJSON())} - ${msg}`).join('\n') + '\n';
   }
 }
 

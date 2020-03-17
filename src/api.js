@@ -113,19 +113,19 @@ class TCAPI {
     } catch (err) {
       if (err.statusCode === 500) {
         this.logger.log(`500 error from ${name}`);
-        return;
+        return false;
       }
       if (err.statusCode === 502) {
         this.logger.log(`502 error from ${name}`);
-        return;
+        return false;
       }
       if (err.code === 'ECONNABORTED') {
         this.logger.log(`timeout from ${name}`);
-        return;
+        return false;
       }
       if (err.code === 'ECONNRESET') {
         this.logger.log(`connection reset from ${name}`);
-        return;
+        return false;
       }
       throw err;
     }

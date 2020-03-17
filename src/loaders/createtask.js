@@ -30,8 +30,9 @@ exports.createtask_loader = async ({name, stopper, logger, settings, monitor, tc
     task.provisionerId = tqi1;
     task.workerType = tqi2;
     const taskId = taskcluster.slugid();
-    await tcapi.call('queue.createTask', () => queue.createTask(taskId, task));
-    addTaskId(taskId);
+    if (await tcapi.call('queue.createTask', () => queue.createTask(taskId, task))) {
+      addTaskId(taskId);
+    }
   });
 
   const pendingMonitor = new Promise((resolve, reject) => {
