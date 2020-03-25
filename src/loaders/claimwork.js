@@ -37,6 +37,19 @@ exports.claimwork_loader = async ({name, stopper, logger, settings, monitor, tca
         if (_.random(0, 1)) {
           await tcapi.call("queue.reclaimTask", () => queue.reclaimTask(taskId, runId));
         }
+
+        // upload some artifacts. This skips the actual artifact upload, as that is not part of
+        // the services.  In production we see about 2.4 artifacts per task, so this creates
+        // three..
+        await Promise.all(_.range(3).map(
+          n => tcapi.call("queue.createArtifact",
+            () => queue.createArtifact(taskId, runId, `public/artifact-${n}`, {
+              storageType: 's3',
+              contentType: 'text/plain',
+              expires: taskcluster.fromNow('1 minute'),
+            }))
+          ));
+
         await tcapi.call("queue.reportCompleted", () => queue.reportCompleted(taskId, runId));
       };
 
