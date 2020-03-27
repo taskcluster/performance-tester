@@ -4,6 +4,9 @@ A performance tester for Taskcluster deployments.
 
 *NOTE*: this is built as a development testing tool and is not suitable for general use.
 
+<p align="center">
+  <img alt="example run" src="screenshot.png" width="480px">
+</p>
 # Usage
 
 ```
