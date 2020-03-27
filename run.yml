@@ -74,7 +74,10 @@ loaders:
     secret: garbage
   notify:
     use: notify
-    rate: 20
+    rate: 1
+  github:
+    use: github
+    rate: 1
   workermanager:
     use: workermanager
     workerPoolId: proj-taskcluster/static
