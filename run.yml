@@ -67,6 +67,10 @@ loaders:
     use: secrets
     rate: 2
     secret: garbage
+  workermanager:
+    use: workermanager
+    workerPoolId: proj-taskcluster/static
+    rate: 3
   pendingtasks:
     use: pendingtasks
     task-queue-ids:
