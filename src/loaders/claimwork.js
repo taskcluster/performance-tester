@@ -28,7 +28,7 @@ exports.claimwork_loader = async ({name, stopper, logger, settings, monitor, tca
 
       let stopLoopPromise, startLoopPromise = Promise.resolve();
 
-      const runTask = async (taskId, runId) => {
+      const runTask = async (taskId, runId, task) => {
         // sleep for about a minute, to simulate the task running for that
         // time.  The queue is designed with this in mind, and we get better
         // load results with a lot of one-minute tasks than fewer
@@ -46,7 +46,7 @@ exports.claimwork_loader = async ({name, stopper, logger, settings, monitor, tca
             () => queue.createArtifact(taskId, runId, `public/artifact-${n}`, {
               storageType: 's3',
               contentType: 'text/plain',
-              expires: taskcluster.fromNow('1 minute'),
+              expires: task.expires,
             }))
           ));
 
@@ -99,7 +99,7 @@ exports.claimwork_loader = async ({name, stopper, logger, settings, monitor, tca
 
             // run the task and remove it from running when done, and call `startLoop` again
             // when that happens.
-            running[key] = runTask(taskId, runId).catch(reject).then(() => {
+            running[key] = runTask(taskId, runId, claim.task).catch(reject).then(() => {
               status.numRunning--;
               delete running[key];
               startLoop();
