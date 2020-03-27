@@ -20,7 +20,11 @@ exports.getartifacts_loader = async ({name, stopper, logger, settings, monitor, 
     if (waiting) {
       return` ▶ ${chalk.bold.cyan(name)}: ${chalk.bgRed('waiting for tasks')}\n`;
     } else {
-      return ` ▶ ${chalk.bold.cyan(name)}: ${chalk.yellow('target rate')}: ${totalrate} rq/s (total)\n`;
+      return ` ▶ ${chalk.bold.cyan(name)}: ${chalk.yellow('target rate')}: ` +
+        `listArtifacts: ${rate.list} rq/s; ` +
+        `listLatestArtifacts: ${rate.listlatest} rq/s; ` +
+        `getArtifacts: ${rate.get} rq/s; ` +
+        `getLatestArtifacts: ${rate.getlatest} rq/s\n`;
     }
   });
 
