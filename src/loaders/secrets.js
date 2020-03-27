@@ -15,7 +15,7 @@ exports.secrets_loader = async ({name, stopper, logger, tcapi, settings, monitor
 
   await secrets.set(secret, {
     secret: {'passphrase': 'correct horse battery staple'},
-    expires: taskcluster.fromNow('1 hour'),
+    expires: taskcluster.fromNow('1 day'),
   });
 
   await atRate({stopper, logger, name, rate}, async () => {
