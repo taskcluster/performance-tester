@@ -72,6 +72,9 @@ loaders:
     use: secrets
     rate: 2
     secret: garbage
+  notify:
+    use: notify
+    rate: 20
   workermanager:
     use: workermanager
     workerPoolId: proj-taskcluster/static
