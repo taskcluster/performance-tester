@@ -48,7 +48,10 @@ loaders:
       - proj-taskcluster/load-test3
 
   # random general API method load generation
-  gettask:
+  index:
+    use: index
+    rate: 2
+  task:
     use: gettask
     rate: 31.7
   gettaskstatus:

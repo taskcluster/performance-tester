@@ -17,6 +17,9 @@ exports.TASK_TEMPLATE =  {
   deadline: {$fromNow: '10 minutes'},
   expires: {$fromNow: '10 minutes'},
   payload: {},
+  routes: [
+    'index.garbage.${idx}',
+  ],
   metadata: {
     name: 'Test Task',
     description: 'A task!',

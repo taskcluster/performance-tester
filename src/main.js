@@ -26,7 +26,6 @@ const main = () => {
     if (!loader) {
       throw new Error('no such loader ' + loader);
     }
-    logger.log(`starting loader ${name}`);
     return loader({name, monitor, logger, stopper, tcapi, config, settings});
   }));
 

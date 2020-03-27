@@ -14,24 +14,28 @@ exports.createtask_loader = async ({name, stopper, logger, settings, monitor, tc
 
   let numPending = 0;
   let throttling = false;
+  let recentTaskId = '-';
 
   monitor.output_fn(5, () => ` ▶ ${chalk.bold.cyan(name)}: ` +
     `${chalk.yellow('taskQueueId')}: ${taskQueueId}; ` +
     (throttling ? `${chalk.bgRed('throttling')}; ` : '') +
     `${chalk.yellow('target rate')}: ${rate} rq/s; ` +
-    `${chalk.yellow('Pending tasks')}: ${numPending}\n`);
+    `${chalk.yellow('Pending tasks')}: ${numPending}; ` +
+    `${chalk.yellow('Recent task:')}: ${recentTaskId}\n`);
 
   const creator = atRate({stopper, logger, name, rate}, async () => {
     if (throttling) {
       return;
     }
 
-    const task = jsone(TASK_TEMPLATE, {});
+    const idx = _.random(100, 199);
+    const task = jsone(TASK_TEMPLATE, {idx});
     task.provisionerId = tqi1;
     task.workerType = tqi2;
     const taskId = taskcluster.slugid();
     if (await tcapi.call('queue.createTask', () => queue.createTask(taskId, task))) {
       addTaskId(taskId);
+      recentTaskId = taskId;
     }
   });
 
