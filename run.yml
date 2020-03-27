@@ -54,6 +54,11 @@ loaders:
   task:
     use: gettask
     rate: 31.7
+  hooks:
+    use: hooks
+    hookGroupId: proj-taskcluster
+    hookId: perf-test
+    rate: 0.1  # no need to inject a lot of task load
   gettaskstatus:
     use: gettaskstatus
     rate: 421 # 421!
