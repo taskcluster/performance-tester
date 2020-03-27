@@ -97,6 +97,7 @@ class TCAPI {
     const [latest] = hist.splice(0, 1);
 
     const apiMethods = {};
+    const allMethodRates = {};
     for (let meth of Object.keys(this.counts)) {
       let info = apiMethods[meth];
       if (!info) {
@@ -109,6 +110,7 @@ class TCAPI {
           const dur = latest.time - then.time;
           const diff = latest.counts[meth] - then.counts[meth];
           const rate = diff * 1000 / dur;
+          allMethodRates[then.name] = (allMethodRates[then.name] || 0) + rate;
           if (rate > 10) {
             info[then.name] = {text: `${Math.round(rate)}/s`, formatter: chalk.cyan};
           } else {
@@ -141,6 +143,13 @@ class TCAPI {
         apiMethods[meth].running ? apiMethods[meth].running : {text: '0', formatter: chalk.yellow},
       ]);
     }
+    grid.push([
+      {text: 'Total', formatter: chalk.bold.magenta},
+      ...TIMES.slice(1).map(({name}) => allMethodRates[name] ?
+                            {text: `${Math.round(allMethodRates[name])}/s`, formatter: chalk.bold.cyan} :
+                            {text: '-', formatter: chalk.gray}),
+      {text: '-', formatter: chalk.gray},
+    ]);
 
     return `${chalk.bold('API Methods')}:\n${renderGrid(grid)}`;
   }
