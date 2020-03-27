@@ -31,7 +31,6 @@ exports.workermanager_loader = async ({name, stopper, logger, tcapi, settings, m
 
   const workers = [];
   const workerGroup = taskcluster.slugid();
-  let id = 1;
   await atRate({stopper, logger, name, rate}, async () => {
     const r = _.random(0, 50);
     if (r < 11) {
@@ -40,14 +39,13 @@ exports.workermanager_loader = async ({name, stopper, logger, tcapi, settings, m
         return;
       }
       await tcapi.call("workerManager.createWorker", async () => {
-        const workerId = `wkr-${id}`;
+        const workerId = `wkr-${taskcluster.slugid()}`;
         const staticSecret = taskcluster.slugid() + taskcluster.slugid();
         await workerManager.createWorker(settings.workerPoolId, workerGroup, workerId, {
           expires: taskcluster.fromNow('6 hours'),
           providerInfo: {staticSecret},
         });
         workers.push({workerId, staticSecret});
-        id++;
       });
     // case 2: remove an existing static worker
     } else if (r < 21) {
@@ -63,7 +61,7 @@ exports.workermanager_loader = async ({name, stopper, logger, tcapi, settings, m
       if (workers.length === 0) {
         return;
       }
-      const {workerId, staticSecret} = _.sample(workers);
+      const {workerId, staticSecret} = workers.shift();
       await tcapi.call("workerManager.registerWorker", async () => {
         await workerManager.registerWorker({
           providerId: wp.providerId,
@@ -75,6 +73,7 @@ exports.workermanager_loader = async ({name, stopper, logger, tcapi, settings, m
           },
         });
       });
+      workers.push({workerId, staticSecret});
     }
   });
 };
