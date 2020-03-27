@@ -1,0 +1,75 @@
+loaders:
+  # targetting about 4 tasks/sec, but with some task queues having an excess of workers
+  # and some having an excess of tasks (createtask will throttle itself to keep a decent
+  # list of pending tasks)
+  test-load-create1:
+    use: createtask
+    rate: 2
+    task-queue-id: proj-taskcluster/load-test1
+  test-load-create2:
+    use: createtask
+    rate: 1
+    task-queue-id: proj-taskcluster/load-test2
+  test-load-create3:
+    use: createtask
+    rate: 1
+    task-queue-id: proj-taskcluster/load-test3
+  test-load1:
+    use: claimwork
+    parallelism: 100
+    task-queue-id: proj-taskcluster/load-test1
+  test-load2:
+    use: claimwork
+    parallelism: 100
+    capacity: 4
+    task-queue-id: proj-taskcluster/load-test2
+  test-load3:
+    use: claimwork
+    parallelism: 300
+    task-queue-id: proj-taskcluster/load-test3
+
+  # worker metadata
+  workermeta:
+    use: workermeta
+    listworkersrate: 4.3
+    getworkerrate: 1.5
+    workerPools:
+      - proj-taskcluster/load-test1
+      - proj-taskcluster/load-test2
+      - proj-taskcluster/load-test3
+
+  # purge-cache 
+  purgecache:
+    use: purgecache
+    rate: 3.5
+    workerPools:
+      - proj-taskcluster/load-test1
+      - proj-taskcluster/load-test2
+      - proj-taskcluster/load-test3
+
+  # random general API method load generation
+  gettask:
+    use: gettask
+    rate: 31.7
+  gettaskstatus:
+    use: gettaskstatus
+    rate: 421 # 421!
+  getartifacts:
+    use: getartifacts
+    listrate: 11
+    listlatestrate: 11
+    getrate: 16
+    getlatestrate: 49
+  secrets:
+    use: secrets
+    rate: 2
+    secret: garbage
+  pendingtasks:
+    use: pendingtasks
+    task-queue-ids:
+      - proj-taskcluster/load-test1
+      - proj-taskcluster/load-test2
+      - proj-taskcluster/load-test3
+      - builtin/success
+      - builtin/failure
+    rate: 0.5  # on top of the rate from the various load generators, above
