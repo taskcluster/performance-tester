@@ -10,7 +10,7 @@
     "cli-spinners": "^2.2.0",
     "js-yaml": "^3.13.1",
     "json-e": "^3.0.1",
-    "lodash": "^4.17.15",
+    "lodash": "^4.17.19",
     "log-update": "^3.3.0",
     "superagent": "^5.2.2",
     "taskcluster-client": "^24.2.0"
